@@ -7,8 +7,9 @@ Created on Mon Nov 11 15:46:42 2019
 
 import numpy as np
 
-N=784
-Lx=28
+
+Lx=22
+N=Lx**2
 np.random.seed(12345)
 J = (np.random.normal(0.0,1.0,size=(N-Lx,2)))*-1.
 f= open("spins_sites_and_couplings.txt","w+")
@@ -31,6 +32,8 @@ for kx in range(Lx):
             f.write(strout_up)
         
 f.close()
+
+print(f"Saved couplings for system size {Lx}")
 
 
         
