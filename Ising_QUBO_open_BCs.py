@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Tue Jun 15 16:19:49 2021
 
@@ -12,8 +13,7 @@ from dwave.system import DWaveSampler, EmbeddingComposite
 
 def get_token():
     """Return your personal access token"""
-
-    return "DEV-ed754d76dd0318480f2c1ba2747bfa8d946c9ae8"
+    return "CINE-6bb0e25c6a6fafcaf548a48a27190c1694a5f762"
 
 
 Lx = 10
@@ -98,7 +98,7 @@ def run_on_qpu(Js, hs, sampler):
         h=hs,
         J=Js,
         num_reads=numruns,
-        label="ISING Glass open BCs",
+        label="ISING Glass open BCs Single NN",
         reduce_intersample_correlation=True,
         # programming_thermalization=2,
         annealing_time=10,
@@ -114,22 +114,22 @@ def run_on_qpu(Js, hs, sampler):
 ## ------- Main program -------
 if __name__ == "__main__":
 
-    numruns = 3
+    numruns = 10000
     Js = get_Js()
 
     # bqm = dimod.BQM.from_qubo(Js)
     # sample_set = EmbeddingComposite(DWaveSampler()).sample(bqm, num_reads=numruns)
 
-    qpu_2000q = DWaveSampler(solver={"topology__type": "pegasus"})
+    qpu = DWaveSampler(solver={"topology__type": "pegasus"})
 
-    sampler = EmbeddingComposite(qpu_2000q)
+    sampler = EmbeddingComposite(qpu)
 
     print(sampler.properties)
 
-    for k in range(1):
+    for k in range(18):
         sample_set = run_on_qpu(Js, hs, sampler)
 
-        print(sample_set)
+        print(f"K={k}", sample_set)
         configs = []
         energies = []
         dwave_engs = []
@@ -147,5 +147,5 @@ if __name__ == "__main__":
                 energies.append(energy)
 
         np.save(f"configs_{k}.npy", np.asarray(configs))
-        np.save(f"dwave-engs_{k}.npy", np.asaray(dwave_engs))
+        np.save(f"dwave-engs_{k}.npy", np.asarray(dwave_engs))
         np.savetxt(f"energies_{k}.txt", energies)
