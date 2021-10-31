@@ -100,12 +100,12 @@ def run_on_qpu(Js, hs, sampler):
         num_reads=numruns,
         label="ISING Glass open BCs",
         reduce_intersample_correlation=True,
-        programming_thermalization=2,
-        annealing_time=5,
-        readout_thermalization=2,
-        postprocess="sampling",
-        beta=2.0,
-        answer_mode="histogram",
+        # programming_thermalization=2,
+        annealing_time=10,
+        # readout_thermalization=2,
+        # postprocess="sampling",
+        # beta=2.0,
+        answer_mode="raw",
     )
 
     return sample_set
@@ -120,9 +120,11 @@ if __name__ == "__main__":
     # bqm = dimod.BQM.from_qubo(Js)
     # sample_set = EmbeddingComposite(DWaveSampler()).sample(bqm, num_reads=numruns)
 
-    qpu_2000q = DWaveSampler(solver={"topology__type": "chimera"})
+    qpu_2000q = DWaveSampler(solver={"topology__type": "pegasus"})
 
     sampler = EmbeddingComposite(qpu_2000q)
+
+    print(sampler.properties)
 
     for k in range(1):
         sample_set = run_on_qpu(Js, hs, sampler)
@@ -130,12 +132,13 @@ if __name__ == "__main__":
         print(sample_set)
         configs = []
         energies = []
+        dwave_engs = []
 
         for i in range(sample_set.record.size):
             for j in range(sample_set.record[i][2]):
 
                 S0 = sample_set._record[i]["sample"]
-                print(dwave_eng=sample_set._record[i])
+                dwave_engs.append(sample_set._record[i]["energy"])
 
                 S0d = np.reshape(S0, (Lx, Lx), order="F")
                 energy = econf(Lx, J, S0d)
@@ -144,7 +147,5 @@ if __name__ == "__main__":
                 energies.append(energy)
 
         np.save(f"configs_{k}.npy", np.asarray(configs))
+        np.save(f"dwave-engs_{k}.npy", np.asaray(dwave_engs))
         np.savetxt(f"energies_{k}.txt", energies)
-
-
-# dwave.inspector.show(sample_set)
