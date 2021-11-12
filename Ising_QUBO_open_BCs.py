@@ -16,7 +16,7 @@ def get_token():
     return "CINE-6bb0e25c6a6fafcaf548a48a27190c1694a5f762"
 
 
-Lx = 10
+Lx = 22
 N = Lx ** 2
 np.random.seed(12345)
 J = (np.random.normal(0.0, 1.0, size=(N - Lx, 2))) * -1.0
@@ -56,33 +56,16 @@ def econf(Lx, J, S0):
     energy = 0.0
     for kx in range(Lx):
         for ky in range(Lx):
-
             k = kx + (Lx * ky)
-            R = kx + 1  # right spin
-            L = kx - 1  # left spin
-            U = ky - 1  # up spin
-            D = ky + 1  # down spin
-
             kR = k - ky  # coupling to the right of S0[kx,ky]
-            kU = k - Lx  # coupling to the up of S0[kx,ky]
-            kL = k - ky - 1  # coupling to the left of S0[kx,ky]
             kD = k  # coupling to the down of S0[kx,ky]
 
-            try:
-                Rs = (
-                    S0[R, ky] * J[kR, 0]
-                )  # Tries to find a spin to right, if no spin, contribution is 0.
-            except:
-                Rs = 0.0
+            # Tries to find a spin to right, if no spin energy contribution is 0.
+            Rs = S0[kx + 1, ky] * J[kR, 0] if (kx + 1) % Lx != 0 else 0
+            # Tries to find a spin to left, if no spin energy contribution is 0.
+            Ds = S0[kx, ky + 1] * J[kD, 1] if (ky + 1) % Lx != 0 else 0
 
-            try:
-                Ds = S0[kx, D] * J[kD, 1]
-            except:
-                Ds = 0.0
-
-            nb = Rs + Ds  # + Ls + Us
-            S = S0[kx, ky]
-            energy += -S * nb
+            energy += -S0[kx, ky] * (Rs + Ds)
     return energy / (Lx ** 2)
 
 
@@ -101,7 +84,7 @@ def run_on_qpu(Js, hs, sampler):
         label="ISING Glass open BCs Single NN",
         reduce_intersample_correlation=True,
         # programming_thermalization=2,
-        annealing_time=10,
+        annealing_time=100,
         # readout_thermalization=2,
         # postprocess="sampling",
         # beta=2.0,
@@ -114,7 +97,7 @@ def run_on_qpu(Js, hs, sampler):
 ## ------- Main program -------
 if __name__ == "__main__":
 
-    numruns = 10000
+    numruns = 5000
     Js = get_Js()
 
     # bqm = dimod.BQM.from_qubo(Js)
@@ -126,7 +109,7 @@ if __name__ == "__main__":
 
     print(sampler.properties)
 
-    for k in range(18):
+    for k in range(16, 40):
         sample_set = run_on_qpu(Js, hs, sampler)
 
         print(f"K={k}", sample_set)
