@@ -9,6 +9,9 @@ Created on Tue Jun 15 16:19:49 2021
 import numpy as np
 from numpy.random import rand
 from dwave.system import DWaveSampler, EmbeddingComposite
+import dwave.inspector
+
+from adjacency import Adjacency
 
 
 def get_token():
@@ -42,13 +45,18 @@ def get_Js(J=J, Lx=Lx):
             if k < ((Lx * ky) + (Lx - 1)):
                 JR = J[int(kR), 0] * 1.0
                 Js.update({(k, R): JR})
-                print(k)
+                #print(k)
 
             if k < (Lx ** 2 - 1) - Lx + 1:
                 JD = J[int(kD), 1] * 1.0
                 Js.update({(k, D): JD})
-                print(k)
-
+                #print(k)
+    txtarr = []
+    for (i, j), coupling in Js.items():
+        # see http://mcsparse.uni-bonn.de/spinglass/
+        #print(int(i+1), int(j+1), coupling)
+        txtarr.append([int(i + 1), int(j + 1), coupling])
+    np.savetxt(f"{Lx**2}spins_open-1nn.txt", txtarr, fmt=['%d', '%d', '%1.10f'])
     return Js
 
 
@@ -69,6 +77,14 @@ def econf(Lx, J, S0):
     return energy / (Lx ** 2)
 
 
+def compute_energy_bis(sample, neighbours, couplings, len_neighbours):
+    energy = 0
+    for i in range(neighbours.shape[0]):
+        for j in range(len_neighbours[i]):
+            energy += sample[i] * (sample[int(neighbours[i, j])] * couplings[i, j])
+    return energy / 2
+
+
 def run_on_qpu(Js, hs, sampler):
     """Runs the QUBO problem Q on the sampler provided.
 
@@ -83,11 +99,8 @@ def run_on_qpu(Js, hs, sampler):
         num_reads=numruns,
         label="ISING Glass open BCs Single NN",
         reduce_intersample_correlation=True,
-        # programming_thermalization=2,
-        annealing_time=100,
-        # readout_thermalization=2,
-        # postprocess="sampling",
-        # beta=2.0,
+        annealing_time=1,
+        readout_thermalization=2,
         answer_mode="raw",
     )
 
@@ -97,7 +110,7 @@ def run_on_qpu(Js, hs, sampler):
 ## ------- Main program -------
 if __name__ == "__main__":
 
-    numruns = 5000
+    numruns = 8
     Js = get_Js()
 
     # bqm = dimod.BQM.from_qubo(Js)
@@ -107,14 +120,29 @@ if __name__ == "__main__":
 
     sampler = EmbeddingComposite(qpu)
 
+    txtfile = "484spins_open-1nn.txt"
+    open_bound_couplings = Adjacency(22)
+    open_bound_couplings.loadtxt(txtfile)
+
+    # get neighbourhood matrix
+    neighbours, couplings = open_bound_couplings.get_neighbours()
+    neighbours = neighbours.astype(int)
+    len_neighbours = np.sum(couplings != 0, axis=-1)
+
+
     print(sampler.properties)
 
-    for k in range(16, 40):
+    for k in range(0, 1):
         sample_set = run_on_qpu(Js, hs, sampler)
 
-        print(f"K={k}", sample_set)
+        print(f"K={k}\n", sample_set)
+
+        dwave.inspector.show(sample_set)
+        break
+
         configs = []
         energies = []
+        energies_bis = []
         dwave_engs = []
 
         for i in range(sample_set.record.size):
@@ -124,11 +152,17 @@ if __name__ == "__main__":
                 dwave_engs.append(sample_set._record[i]["energy"])
 
                 S0d = np.reshape(S0, (Lx, Lx), order="F")
+                s0 = np.reshape(S0d, Lx**2, order='F')
                 energy = econf(Lx, J, S0d)
+                energy_bis = compute_energy_bis(S0, neighbours, couplings, len_neighbours)
 
                 configs.append(S0)
                 energies.append(energy)
+                energies_bis.append(energy_bis)
+
 
         np.save(f"configs_{k}.npy", np.asarray(configs))
         np.save(f"dwave-engs_{k}.npy", np.asarray(dwave_engs))
         np.savetxt(f"energies_{k}.txt", energies)
+        np.savetxt(f"energies_{k}_bis.txt", energies_bis)
+

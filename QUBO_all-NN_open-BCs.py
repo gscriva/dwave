@@ -10,13 +10,16 @@ from dwave.system import DWaveSampler, EmbeddingComposite
 import dwave.inspector
 import dimod
 
+from adjacency import Adjacency
+
+
 
 def get_token():
     """Return your personal access token"""
-    return "DEV-ed754d76dd0318480f2c1ba2747bfa8d946c9ae8"
+    return "CINE-6bb0e25c6a6fafcaf548a48a27190c1694a5f762"
 
 
-Lx = 4
+Lx = 22
 N = Lx ** 2
 np.random.seed(12345)
 J = (np.random.normal(0.0, 1.0, size=(N - Lx, 2))) * -1.0
@@ -26,6 +29,12 @@ np.savetxt("coplings.txt", J)
 Js = {}
 hs = {}
 
+def compute_energy_bis(sample, neighbours, couplings, len_neighbours):
+    energy = 0
+    for i in range(neighbours.shape[0]):
+        for j in range(len_neighbours[i]):
+            energy += sample[i] * (sample[int(neighbours[i, j])] * couplings[i, j])
+    return energy / 2
 
 def get_Js(J=J, Lx=Lx):
     for ky in range(Lx):
@@ -61,6 +70,12 @@ def get_Js(J=J, Lx=Lx):
             if ky > 0 and kx != Lx - 1:
                 JUR = J2[int(kUR), 0] * 1.0
                 Js.update({(k, UR): JUR})
+    txtarr = []
+    for (i, j), coupling in Js.items():
+        # see http://mcsparse.uni-bonn.de/spinglass/
+        #print(int(i+1), int(j+1), coupling)
+        txtarr.append([int(i + 1), int(j + 1), coupling])
+    np.savetxt(f"{Lx**2}spins_open-3nn.txt", txtarr, fmt=['%d', '%d', '%1.10f'])
 
     return Js
 
@@ -125,7 +140,7 @@ def econf(Lx, J, S0):
             nb = Rs + Ds + URs + DRs  # + Ls + Us
             S = S0[kx, ky]
             energy += -S * nb
-    print("rs", rs_count, "ds", ds_count, "urs", urs_count, "drs", drs_count)
+    #print("rs", rs_count, "ds", ds_count, "urs", urs_count, "drs", drs_count)
     return energy / (Lx ** 2)
 
 
@@ -137,7 +152,6 @@ def run_on_qpu(Js, hs, sampler):
     """
 
     print(numruns)
-    ciao
 
     sample_set = sampler.sample_ising(
         h=hs,
@@ -145,7 +159,7 @@ def run_on_qpu(Js, hs, sampler):
         num_reads=numruns,
         label="ISING Glass open BCs",
         reduce_intersample_correlation=True,
-        annealing_time=10,
+        annealing_time=1,
         answer_mode="raw",
     )
 
@@ -155,7 +169,7 @@ def run_on_qpu(Js, hs, sampler):
 ## ------- Main program -------
 if __name__ == "__main__":
 
-    numruns = 1
+    numruns = 8
     Js = get_Js()
 
     # bqm = dimod.BQM.from_qubo(Js)
@@ -164,28 +178,53 @@ if __name__ == "__main__":
     qpu_2000q = DWaveSampler(solver={"topology__type": "pegasus"})
 
     sampler = EmbeddingComposite(qpu_2000q)
-    print(sampler.properties)
 
-    for k in range(1):
+    txtfile = "484spins_open-3nn.txt"
+    open_bound_couplings = Adjacency(Lx)
+    open_bound_couplings.loadtxt(txtfile)
+
+    # get neighbourhood matrix
+    neighbours, couplings = open_bound_couplings.get_neighbours()
+    neighbours = neighbours.astype(int)
+    len_neighbours = np.sum(couplings != 0, axis=-1)
+
+    #print(sampler.properties)
+
+    for k in range(41,50):
         sample_set = run_on_qpu(Js, hs, sampler)
 
         print(sample_set)
+        import dwave.inspector
+        dwave.inspector.show(sample_set)
+        break
         configs = []
         energies = []
+        energies_bis = []
+        dwave_engs = []
 
         for i in range(sample_set.record.size):
             for j in range(sample_set.record[i][2]):
 
                 S0 = sample_set._record[i]["sample"]
+                dwave_engs.append(sample_set._record[i]["energy"])
+
 
                 S0d = np.reshape(S0, (Lx, Lx), order="F")
+                s0 = np.reshape(S0d, Lx**2, order='F')
+
                 energy = econf(Lx, J, S0d)
+                energy_bis = compute_energy_bis(S0, neighbours, couplings, len_neighbours)
+
+                #print(f"engs {dwave_engs[i] / Lx**2 :.20f} {-energy: .20f} {energy_bis / Lx**2: .20f}")
 
                 configs.append(S0d)
                 energies.append(energy)
 
         np.save("configs" + str(k) + ".npy", np.asarray(configs))
-        np.savetxt("energies" + str(k) + ".txt", energies)
+        np.savetxt(f"dwave-engs_{k}.txt", dwave_engs)
+        # np.savetxt(f"energies_{k}.txt", energies)
+        # np.savetxt(f"energies_{k}_bis.txt", energies_bis)
+        # np.savetxt("energies" + str(k) + ".txt", energies)
 
 
 # dwave.inspector.show(sample_set)
