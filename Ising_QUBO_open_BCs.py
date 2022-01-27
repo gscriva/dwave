@@ -22,7 +22,7 @@ def get_token():
 Lx = 22
 N = Lx ** 2
 np.random.seed(12345)
-J = (np.random.normal(0.0, 1.0, size=(N - Lx, 2))) * -1.0
+J = (np.random.uniform(-1., 1., size=(N - Lx, 2))) * -1.0
 np.savetxt("coplings.txt", J)
 
 Js = {}
@@ -56,7 +56,7 @@ def get_Js(J=J, Lx=Lx):
         # see http://mcsparse.uni-bonn.de/spinglass/
         #print(int(i+1), int(j+1), coupling)
         txtarr.append([int(i + 1), int(j + 1), coupling])
-    np.savetxt(f"{Lx**2}spins_open-1nn.txt", txtarr, fmt=['%d', '%d', '%1.10f'])
+    np.savetxt(f"{Lx**2}spins_uniform-1nn.txt", txtarr, fmt=['%d', '%d', '%1.10f'])
     return Js
 
 
@@ -85,7 +85,7 @@ def compute_energy_bis(sample, neighbours, couplings, len_neighbours):
     return energy / 2
 
 
-def run_on_qpu(Js, hs, sampler):
+def run_on_qpu(Js, hs, sampler, chain_strength):
     """Runs the QUBO problem Q on the sampler provided.
 
     Args:
@@ -97,10 +97,11 @@ def run_on_qpu(Js, hs, sampler):
         h=hs,
         J=Js,
         num_reads=numruns,
-        label="ISING Glass open BCs Single NN",
+        label="ISING Glass Uniform Single NN",
+        chain_strength=chain_strength,
         reduce_intersample_correlation=True,
         annealing_time=1,
-        readout_thermalization=2,
+        #readout_thermalization=2,
         answer_mode="raw",
     )
 
@@ -110,7 +111,7 @@ def run_on_qpu(Js, hs, sampler):
 ## ------- Main program -------
 if __name__ == "__main__":
 
-    numruns = 8
+    numruns = 8000
     Js = get_Js()
 
     # bqm = dimod.BQM.from_qubo(Js)
@@ -120,8 +121,9 @@ if __name__ == "__main__":
 
     sampler = EmbeddingComposite(qpu)
 
-    txtfile = "484spins_open-1nn.txt"
-    open_bound_couplings = Adjacency(22)
+    txtfile = "484spins_uniform-1nn.txt"
+    spin_side = 22
+    open_bound_couplings = Adjacency(spin_side)
     open_bound_couplings.loadtxt(txtfile)
 
     # get neighbourhood matrix
@@ -129,16 +131,18 @@ if __name__ == "__main__":
     neighbours = neighbours.astype(int)
     len_neighbours = np.sum(couplings != 0, axis=-1)
 
+    #print(sampler.properties)
 
-    print(sampler.properties)
+    #chain_strengths = np.linspace(0.25, 1., num=4)
+    #print(chain_strengths)
+    #print(np.loadtxt(txtfile).max(0)[2], np.loadtxt(txtfile).min(0)[2])
 
-    for k in range(0, 1):
-        sample_set = run_on_qpu(Js, hs, sampler)
+    for k in range(3, 50):
+        sample_set = run_on_qpu(Js, hs, sampler, 1.1)
 
-        print(f"K={k}\n", sample_set)
+        #print(f"K={k}\n", sample_set)
 
-        dwave.inspector.show(sample_set)
-        break
+        #dwave.inspector.show(sample_set)
 
         configs = []
         energies = []
@@ -151,18 +155,22 @@ if __name__ == "__main__":
                 S0 = sample_set._record[i]["sample"]
                 dwave_engs.append(sample_set._record[i]["energy"])
 
-                S0d = np.reshape(S0, (Lx, Lx), order="F")
-                s0 = np.reshape(S0d, Lx**2, order='F')
-                energy = econf(Lx, J, S0d)
-                energy_bis = compute_energy_bis(S0, neighbours, couplings, len_neighbours)
+                # S0d = np.reshape(S0, (Lx, Lx), order="F")
+                # s0 = np.reshape(S0d, Lx**2)
+                #energy = econf(Lx, J, S0d)
+                #energy_bis = compute_energy_bis(S0, neighbours, couplings, len_neighbours)
 
                 configs.append(S0)
-                energies.append(energy)
-                energies_bis.append(energy_bis)
+                #energies.append(energy)
+                #energies_bis.append(energy_bis)
+
+                #print(f"{sample_set._record[i]['energy'] / spin_side**2}   {energy_bis / spin_side**2}")
 
 
-        np.save(f"configs_{k}.npy", np.asarray(configs))
-        np.save(f"dwave-engs_{k}.npy", np.asarray(dwave_engs))
-        np.savetxt(f"energies_{k}.txt", energies)
-        np.savetxt(f"energies_{k}_bis.txt", energies_bis)
+        np.save(f"484spins-1nn-uniform-1mus/configs_{k}.npy", np.asarray(configs))
+        np.save(f"484spins-1nn-uniform-1mus/dwave-engs_{k}.npy", np.asarray(dwave_engs))
+
+        #print(np.asarray(dwave_engs).min(), np.asarray(dwave_engs).mean())
+        #np.savetxt(f"energies_{k}.txt", energies)
+        #np.savetxt(f"energies_{k}_bis.txt", energies_bis)
 
