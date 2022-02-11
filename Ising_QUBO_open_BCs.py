@@ -17,8 +17,7 @@ from adjacency import Adjacency
 
 def get_token():
     """Return your personal access token"""
-    return "DEV-ed754d76dd0318480f2c1ba2747bfa8d946c9ae8"
-    #return "CINE-6bb0e25c6a6fafcaf548a48a27190c1694a5f762"
+    return "CINE-6bb0e25c6a6fafcaf548a48a27190c1694a5f762"
 
 
 Lx = 22
@@ -102,7 +101,7 @@ def run_on_qpu(Js, hs, sampler, chain_strength):
         label="ISING Glass Uniform Single NN",
         chain_strength=chain_strength,
         reduce_intersample_correlation=True,
-        annealing_time=10,
+        annealing_time=1,
         readout_thermalization=20,
         answer_mode="raw",
     )
@@ -113,7 +112,7 @@ def run_on_qpu(Js, hs, sampler, chain_strength):
 ## ------- Main program -------
 if __name__ == "__main__":
 
-    numruns = 8000
+    numruns = 1000
     Js = get_Js()
 
     # bqm = dimod.BQM.from_qubo(Js)
@@ -139,12 +138,12 @@ if __name__ == "__main__":
     #print(chain_strengths)
     #print(np.loadtxt(txtfile).max(0)[2], np.loadtxt(txtfile).min(0)[2])
 
-    for k in trange(48, 51):
+    for k in trange(10, 11):
         sample_set = run_on_qpu(Js, hs, sampler, 1.1)
 
-        #print(f"K={k}\n", sample_set)
+        print(f"K={k}\n", sample_set)
 
-        #dwave.inspector.show(sample_set)
+        dwave.inspector.show(sample_set)
 
         configs = []
         energies = []
@@ -169,8 +168,8 @@ if __name__ == "__main__":
                 #print(f"{sample_set._record[i]['energy'] / spin_side**2}   {energy_bis / spin_side**2}")
 
 
-        np.save(f"484spins-1nn-uniform-10mus/configs_{k}.npy", np.asarray(configs))
-        np.save(f"484spins-1nn-uniform-10mus/dwave-engs_{k}.npy", np.asarray(dwave_engs))
+        #np.save(f"484spins-1nn-uniform-100mus/configs_{k}.npy", np.asarray(configs))
+        #np.save(f"484spins-1nn-uniform-100mus/dwave-engs_{k}.npy", np.asarray(dwave_engs))
 
         print(np.asarray(dwave_engs).min() / 484, np.asarray(dwave_engs).mean() / 484)
         #np.savetxt(f"energies_{k}.txt", energies)
