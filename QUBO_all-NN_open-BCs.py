@@ -22,8 +22,10 @@ def get_token():
 Lx = 22
 N = Lx ** 2
 np.random.seed(12345)
-J = (np.random.normal(0.0, 1.0, size=(N - Lx, 2))) * -1.0
-J2 = (np.random.normal(0.0, 1.0, size=((Lx - 1) ** 2, 2))) * -1.0
+J = (np.random.uniform(-1.0, 1.0, size=(N - Lx, 2))) * -1.0
+J2 = (np.random.uniform(-1.0, 1.0, size=((Lx - 1) ** 2, 2))) * -1.0
+# J = (np.random.normal(0.0, 1.0, size=(N - Lx, 2))) * -1.0
+#J2 = (np.random.normal(0.0, 1.0, size=((Lx - 1) ** 2, 2))) * -1.0
 np.savetxt("coplings.txt", J)
 
 Js = {}
@@ -169,7 +171,7 @@ def run_on_qpu(Js, hs, sampler):
 ## ------- Main program -------
 if __name__ == "__main__":
 
-    numruns = 8
+    numruns = 10
     Js = get_Js()
 
     # bqm = dimod.BQM.from_qubo(Js)
@@ -190,13 +192,13 @@ if __name__ == "__main__":
 
     #print(sampler.properties)
 
-    for k in range(41,50):
+    for k in range(0,1):
         sample_set = run_on_qpu(Js, hs, sampler)
 
         print(sample_set)
-        import dwave.inspector
-        dwave.inspector.show(sample_set)
-        break
+        #import dwave.inspector
+        #dwave.inspector.show(sample_set)
+        #break
         configs = []
         energies = []
         energies_bis = []
@@ -210,15 +212,14 @@ if __name__ == "__main__":
 
 
                 S0d = np.reshape(S0, (Lx, Lx), order="F")
-                s0 = np.reshape(S0d, Lx**2, order='F')
 
                 energy = econf(Lx, J, S0d)
                 energy_bis = compute_energy_bis(S0, neighbours, couplings, len_neighbours)
 
-                #print(f"engs {dwave_engs[i] / Lx**2 :.20f} {-energy: .20f} {energy_bis / Lx**2: .20f}")
+                print(f"engs {dwave_engs[i] / Lx**2 :.20f} {-energy: .20f} {energy_bis / Lx**2: .20f}")
 
-                configs.append(S0d)
-                energies.append(energy)
+                configs.append(S0)
+                energies.append(dwave_engs)
 
         np.save("configs" + str(k) + ".npy", np.asarray(configs))
         np.savetxt(f"dwave-engs_{k}.txt", dwave_engs)
@@ -227,4 +228,4 @@ if __name__ == "__main__":
         # np.savetxt("energies" + str(k) + ".txt", energies)
 
 
-# dwave.inspector.show(sample_set)
+dwave.inspector.show(sample_set)

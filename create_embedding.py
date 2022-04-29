@@ -73,14 +73,14 @@ if __name__ == "__main__":
     np.random.seed(12345)
     J = (np.random.uniform(-1., 1., size=(spins - spin_side, 2))) * -1.0
     J2 = None
-    J2 = (np.random.uniform(-1.0, 1.0, size=((spins - spin_side) ** 2, 2))) * -1.0
-    txtfile = f"{spins}spins-uniform-3nn"
+    #J2 = (np.random.uniform(-1.0, 1.0, size=((spins - spin_side) ** 2, 2))) * -1.0
+
+    connectivity = 1 if J2 is None else 3
+    txtfile = f"{spins}spins-uniform-{connectivity}nn"
 
     Js, ising_graph = get_Js(J, spin_side, J2)
     
     # set dwave properties
-    num_reads = 10
-    annealing_time = 1
     topology = "pegasus"
 
     # embeddidng parameters
@@ -105,7 +105,7 @@ if __name__ == "__main__":
             max_chain_len = len(qubits)
         print(f"Maximum chain length {max_chain_len} [{saved_chain_len}] Total qubits {tot_qubits} [{saved_qubits}]\n")
         if max_chain_len < saved_chain_len or tot_qubits < saved_qubits: 
-            with open(f'embedding_{spins}spins.pkl', 'wb') as f:
+            with open(f'embedding_{spins}spins_{connectivity}nn.pkl', 'wb') as f:
                 pickle.dump(embedding, f)
             saved_chain_len, saved_qubits = max_chain_len, tot_qubits
 
