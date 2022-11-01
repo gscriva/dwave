@@ -7,7 +7,7 @@ from tqdm import trange
 
 import dwave.inspector
 from adjacency import Adjacency
-from dwave.system import DWaveSampler, FixedEmbeddingComposite
+from dwave.system import DWaveSampler, FixedEmbeddingComposite, EmbeddingComposite
 
 def get_token():
     """Return your personal access token"""
@@ -76,7 +76,7 @@ def run_on_qpu(Js,
                num_reads=1000, 
                label="ISING Uniform 1NN Reduced", 
                chain_strength=None, 
-               annealing_time=None,
+               anneal_schedule=None,
                ):
     """Runs the QUBO problem Q on the sampler provided."""
 
@@ -88,8 +88,8 @@ def run_on_qpu(Js,
         chain_strength=chain_strength,
         reduce_intersample_correlation=True,
         readout_thermalization=50,
-        #anneal_schedule=anneal_schedule,
-        annealing_time=annealing_time,
+        anneal_schedule=anneal_schedule,
+        #annealing_time=annealing_time,
         answer_mode="raw",
         return_embedding=True,
     )
@@ -99,41 +99,44 @@ def run_on_qpu(Js,
 
 ## ------- Main program -------
 if __name__ == "__main__":
-    # set ising parameters
-    spin_side = 22
-    spins = spin_side ** 2
-    gaussian=False
-    connectivity = 1
-    save = True
-    verbose = True
-    # set dwave properties
-    num_reads = 1004
-    #anneal_schedule = [[0.0,0.0],[9.5,0.2],[10.,1.0]]
-    annealing_time = 100
-    chain_strength=1.25
-    topology = "pegasus"
-
+    # set parameters
+    # spin_side = 22
+    # spins = spin_side ** 2
+    spins=256
 
     # create couplings and save
     np.random.seed(42)
-    J = (np.random.uniform(-1., 1., size=(spins - spin_side, 2))) * -1.
-    if gaussian:
-        J = np.random.normal(0.0, 1.0, size=((spins - spin_side, 2))) * -1.
+    #J = np.ones((spins, 2)) * -1. # 1d ferro
+    #J = (np.random.uniform(-1., 1., size=(spins - spin_side, 2))) * -1.
+    #J = np.random.normal(0.0, 1.0, size=((spins - spin_side, 2))) * -1.0
 
     J2 = None
-    if connectivity == 3:
-        J2 = (np.random.uniform(-1., 1., size=((spins - spin_side) ** 2, 2))) * -1.
+    #J2 = (np.random.uniform(-1., 1., size=((spins - spin_side) ** 2, 2))) * -1.
+    connectivity = 1 if J2 is None else 3
 
-    txtfile = f"{spins}spins-uniform-seed42-{connectivity}nn"
-    Js, ising_graph = get_Js(J, spin_side, J2)
+    txtfile = f"{spins}spins-ferro1d-{connectivity}nn"
+    #Js, ising_graph = get_Js(J, spin_side, J2)
+    Js = {}
+    for spin in range(spins - 1):
+        Js.update({(spin, (spin+1)%(spins+1)): -1})
+
+    # set dwave properties
+    num_reads = 1000
+    quench = 0.75
+    time_quench = 19
+    annealing = 20
+    anneal_schedule = [[0.0,0.0],[time_quench,quench],[annealing,1.0]]
+    #annealing_time = 100
+    topology = "pegasus"
 
     # load embeddding
-    with open(f'data/embedding/embedding_{spins}spins_{connectivity}nn.pkl', 'rb') as f:
-        embedding = pickle.load(f)
+    # with open(f'embedding_{spins}spins_{connectivity}nn.pkl', 'rb') as f:
+    #     embedding = pickle.load(f)
 
     # initialize sampler
     qpu = DWaveSampler(solver={"topology__type": topology}, token=get_token())
-    sampler = FixedEmbeddingComposite(qpu, embedding)
+    # sampler = FixedEmbeddingComposite(qpu, embedding)
+    sampler = EmbeddingComposite(qpu)
 
     # use custom class for couplings 
     #open_bound_couplings = Adjacency(spin_side)
@@ -145,20 +148,19 @@ if __name__ == "__main__":
     # len_neighbours = np.sum(couplings != 0, axis=-1)
 
     #chain_strs = np.linspace(1.1, 4.0, num=12)
-    for k in range(0, 1):
+    for k in range(0, 40):
         sample_set = run_on_qpu(Js, 
                                 {}, 
                                 sampler, 
                                 num_reads=num_reads, 
-                                label="ISING Uniform 3NN",
-                                annealing_time=annealing_time,
-                                chain_strength=chain_strength,
-                                #anneal_schedule=anneal_schedule,
+                                label="ISING ferro 1d",
+                                #annealing_time=annealing_time,
+                                #chain_strength=1.25,
+                                anneal_schedule=anneal_schedule,
                                 )
         
         #print(f"smaple.info {sample_set.info['embedding_context']}")
-        if verbose:
-            dwave.inspector.show(sample_set)
+        #dwave.inspector.show(sample_set)
 
         configs = []
         dwave_engs = []
@@ -169,12 +171,10 @@ if __name__ == "__main__":
 
                 #print(f"eng {compute_energy(configs[-1], neighbours, couplings, len_neighbours)} dwave_eng {dwave_engs[-1]}")
 
-        print(f"Block {k} {np.asarray(dwave_engs).min() / 484} {np.asarray(dwave_engs).mean() / 484}")
-
-        path = f"{txtfile}-{annealing_time}mus"
+        print(f"Block {k} {np.asarray(dwave_engs).min() / spins} {np.asarray(dwave_engs).mean() / spins}")
+        path = f"{txtfile}-{anneal_schedule[-1][0]}mus-quench{time_quench}mus-{quench}"
         if not os.path.exists(path):
             os.makedirs(path)
 
-        if save:
-            np.save(path + f"/configs_{k}", np.asarray(configs))
-            np.save(path + f"/dwave-engs_{k}.npy", np.asarray(dwave_engs))
+        np.save(path + f"/configs_{k}", np.asarray(configs))
+        np.save(path + f"/dwave-engs_{k}.npy", np.asarray(dwave_engs))

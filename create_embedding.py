@@ -44,8 +44,10 @@ def get_Js(J, Lx, J2=None):
                 if ky > 0 and kx != Lx - 1:
                     JUR = J2[int(kUR), 0] * 1.0
                     Js.update({(k, UR): JUR})
+
+    filename = f"{Lx**2}spins-uniform-seed42-{connectivity}nn" 
     # .sg file is for the spin glass server 
-    f = open(f"{Lx**2}spins-uniform-{connectivity}nn.sg", 'w')
+    f = open(filename + ".sg", 'w')
     f.write(f"{Lx*Lx} {len(Js)}\n")
     couplings_txt = []
     ising_graph = []
@@ -56,7 +58,7 @@ def get_Js(J, Lx, J2=None):
         ising_graph.append((i,j))
         f.write(f"{int(i + 1)} {int(j + 1)} {-coupling}\n")
 
-    np.savetxt(f"{Lx**2}spins-uniform-{connectivity}nn.txt", couplings_txt, fmt=['%d', '%d', '%1.10f'])
+    np.savetxt(filename + ".txt", couplings_txt, fmt=['%d', '%d', '%1.10f'])
     return Js, ising_graph
 
 
@@ -64,19 +66,19 @@ if __name__ == "__main__":
     print("\nSearching for an embedding...")
     start_time = datetime.now()
 
-
     # set parameters
     spin_side = 22
     spins = spin_side ** 2
     
     # create couplings and save
-    np.random.seed(12345)
+    np.random.seed(42)
     J = (np.random.uniform(-1., 1., size=(spins - spin_side, 2))) * -1.0
+    #J = np.random.normal(0.0, 1.0, size=((spins - spin_side, 2))) * -1.0
     J2 = None
-    #J2 = (np.random.uniform(-1.0, 1.0, size=((spins - spin_side) ** 2, 2))) * -1.0
+    J2 = (np.random.uniform(-1.0, 1.0, size=((spins - spin_side) ** 2, 2))) * -1.0
 
     connectivity = 1 if J2 is None else 3
-    txtfile = f"{spins}spins-uniform-{connectivity}nn"
+    txtfile = f"{spins}spins-gaussian-{connectivity}nn"
 
     Js, ising_graph = get_Js(J, spin_side, J2)
     
@@ -91,7 +93,7 @@ if __name__ == "__main__":
 
     dwave_sampler = DWaveSampler(solver={'topology__type': topology})
     saved_chain_len, saved_qubits = np.inf, np.inf
-    while True:
+    for i in range(30):
         # find embedding
         embedding = find_embedding(ising_graph, dwave_sampler.edgelist, timeout=timeout, 
                                 max_no_improvement=max_no_improvement, tries=tries,
