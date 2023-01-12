@@ -102,7 +102,7 @@ if __name__ == "__main__":
     # set parameters
     # spin_side = 22
     # spins = spin_side ** 2
-    spins=256
+    spins=100
 
     # create couplings and save
     np.random.seed(42)
@@ -117,8 +117,9 @@ if __name__ == "__main__":
     txtfile = f"{spins}spins-ferro1d-{connectivity}nn"
     #Js, ising_graph = get_Js(J, spin_side, J2)
     Js = {}
-    for spin in range(spins - 1):
-        Js.update({(spin, (spin+1)%(spins+1)): -1})
+    # PBC with range(spins) OPC with range(spins-1)
+    for spin in range(spins):
+        Js.update({(spin, (spin+1)%(spins)): -1})
 
     # set dwave properties
     num_reads = 1000
