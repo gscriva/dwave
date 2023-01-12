@@ -136,3 +136,6 @@ data/
 
 # directory
 484spins*/
+
+# Mac stuff
+*.DS_Store
