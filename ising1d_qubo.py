@@ -15,6 +15,46 @@ def get_token():
     return "CINE-6bb0e25c6a6fafcaf548a48a27190c1694a5f762"
     # return "DEV-ed754d76dd0318480f2c1ba2747bfa8d946c9ae8"
 
+def ferro_adj_txt(n_spins: int, bc: str) -> dict:
+    """Create the adjacency dictionary for a ferromagnetic spin configuration from the number of spins and the boundary conditions and saves it as a .txt in the current folder.
+
+    Args:
+        n_spins (int): Number of Spins in the configuration
+        bc (str): Boundary conditions: "open" or "peridic"
+
+    Raises:
+        TypeError: Invalid boundary conditions.
+
+    Returns:
+        dict: _description_
+    """
+    Js = {}
+    if bc == "open":
+        for spin in range(n_spins - 1):
+            Js.update({(spin, (spin + 1) % (n_spins)): -1})
+    elif bc == "periodic":
+        for spin in range(n_spins):
+            Js.update({(spin, (spin + 1) % (n_spins)): -1})
+    else:
+        raise TypeError(
+            "Invalid boundary condition. Valid boundary conditions are: 'open' or 'peridoic'"
+        )
+    f = open(f"{n_spins}-{bc}BC-ferrom-1nn.txt", "w")
+    couplings_txt = []
+    ising_graph = []
+    for (i, j), coupling in Js.items():
+        # see http://mcsparse.uni-bonn.de/spinglass/
+        # spin glass server minimize -H
+        couplings_txt.append([int(i + 1), int(j + 1), coupling])
+        ising_graph.append((i, j))
+        f.write(f"{int(i + 1)} {int(j + 1)} {-coupling}\n")
+    f.close()
+    np.savetxt(
+        f"{n_spins}-{bc}BC-ferrom-1nn.txt",
+        couplings_txt,
+        fmt=["%d", "%d", "%1.10f"],
+    )
+    return Js
 
 def get_Js(J, Lx, J2=None):
     connectivity = 1 if J2 is None else 3
@@ -123,11 +163,12 @@ if __name__ == "__main__":
     connectivity = 1 if J2 is None else 3
 
     txtfile = f"{spins}spins-ferro1d-{connectivity}nn"
+    Js = ferro_adj_txt(spins, bc="periodic")
     # Js, ising_graph = get_Js(J, spin_side, J2)
-    Js = {}
+    # Js = {}
     # PBC with range(spins) OPC with range(spins-1)
-    for spin in range(spins):
-        Js.update({(spin, (spin+1)%(spins)): -1})
+    # for spin in range(spins):
+    #     Js.update({(spin, (spin+1)%(spins)): -1})
     # # This part is copied from get_Js function in order to save the couplings between spin pairs
     # f = open(f"{spins}spins-uniform-{connectivity}nn.sg", "w")
     # f.write(f"{spins} {len(Js)}\n")
@@ -147,12 +188,12 @@ if __name__ == "__main__":
     # )
 
     # set dwave properties
-    num_reads = 1000
-    quench = 0.25
-    time_quench = 4
-    annealing = 5
-    anneal_schedule = [[0.0, 0.0], [time_quench, quench], [annealing, 1.0]]
-    # annealing_time = 100
+    num_reads = 100
+    # quench = 0.25
+    # time_quench = 4
+    annealing_time = 5
+    # anneal_schedule = [[0.0, 0.0], [time_quench, quench], [annealing, 1.0]]
+    anneal_schedule = [[0.0, 0.0], [annealing_time, 1.0]]   # Without quench i.e., standard annealing
     topology = "pegasus"
 
     # load embeddding
@@ -174,7 +215,7 @@ if __name__ == "__main__":
     # len_neighbours = np.sum(couplings != 0, axis=-1)
 
     # chain_strs = np.linspace(1.1, 4.0, num=12)
-    for k in range(0, 40):
+    for k in range(0, 1):
         sample_set = run_on_qpu(
             Js,
             {},
@@ -201,9 +242,10 @@ if __name__ == "__main__":
         print(
             f"Block {k} {np.asarray(dwave_engs).min() / spins} {np.asarray(dwave_engs).mean() / spins}"
         )
-        path = f"{txtfile}-{anneal_schedule[-1][0]}mus-quench{time_quench}mus-{quench}"
+        # path = f"{txtfile}-{anneal_schedule[-1][0]}mus-quench{time_quench}mus-{quench}"
+        path = f"{txtfile}-complete_anneal-time{annealing_time}mus"
         if not os.path.exists(path):
             os.makedirs(path)
 
-        np.save(path + f"/configs_{k}", np.asarray(configs))
-        np.save(path + f"/dwave-engs_{k}.npy", np.asarray(dwave_engs))
+        np.save(path + f"/configs_{k}_{annealing_time}mus", np.asarray(configs))
+        np.save(path + f"/dwave-engs_{k}_{annealing_time}mus.npy", np.asarray(dwave_engs))
